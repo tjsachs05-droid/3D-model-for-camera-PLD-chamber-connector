@@ -241,7 +241,15 @@ def clean_collection(name):
     return coll
 
 
+def snap(bm):
+    """Zero out float noise (~1e-15) so points meant to lie on the cover split
+    and cutaway planes really do; the exact boolean leaves holes otherwise."""
+    for v in bm.verts:
+        v.co = [0.0 if abs(c) < 1e-9 else c for c in v.co]
+
+
 def finish_mesh(name, bm, coll):
+    snap(bm)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
@@ -263,9 +271,7 @@ def revolve(name, profile, coll, start=0.0, sweep=360.0):
     verts = []
     for i in range(rings):
         a = math.radians(start + sweep * i / steps)
-        # Rounding makes 0/90/180/270 degrees exact, so points meant to lie on
-        # the cover split and cutaway planes really do (booleans need that).
-        ca, sa = round(math.cos(a), 12), round(math.sin(a), 12)
+        ca, sa = math.cos(a), math.sin(a)
         verts.append([bm.verts.new((x, r * ca, r * sa)) for r, x in profile])
     for i in range(steps):
         ring, nxt = verts[i], verts[(i + 1) % rings]
@@ -286,6 +292,12 @@ def boolean(target, cutter, operation='DIFFERENCE'):
     mod.solver = 'EXACT'
     depsgraph = bpy.context.evaluated_depsgraph_get()
     new_mesh = bpy.data.meshes.new_from_object(target.evaluated_get(depsgraph))
+    bm = bmesh.new()
+    bm.from_mesh(new_mesh)
+    snap(bm)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+    bm.to_mesh(new_mesh)
+    bm.free()
     target.modifiers.remove(mod)
     old_mesh = target.data
     target.data = new_mesh
@@ -359,10 +371,13 @@ def build_camera_cover(g, coll):
 
 
 def cutaway(obj, coll):
-    big = 10000.0
+    """Remove the -Y half of obj with a box sized to cover the whole object."""
+    # Read the vertices directly: bound_box and matrix_world are stale until the
+    # scene next updates.
+    h = max(abs(c) for v in obj.data.vertices for c in v.co) + obj.location.length + 1.0
     bm = bmesh.new()
-    bmesh.ops.create_cube(bm, size=1.0, matrix=Matrix.Translation((0, -big / 2, 0))
-                          @ Matrix.Diagonal((big, big, big, 1)))
+    bmesh.ops.create_cube(bm, size=1.0, matrix=Matrix.Translation((0, -h, 0))
+                          @ Matrix.Diagonal((4 * h, 2 * h, 4 * h, 1)))
     boolean(obj, finish_mesh("CutawayBox", bm, coll))
 
 
