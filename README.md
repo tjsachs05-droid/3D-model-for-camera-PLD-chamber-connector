@@ -16,6 +16,6 @@ Requires Blender 5.2. Open `pld_camera_connector.py` in the Scripting workspace 
 blender --python pld_camera_connector.py
 ```
 
-All dimensions are parameters at the top of the script. Lengths are in mm and angles in degrees. `X1`–`X9`, `THETA1` and `THETA2` match the labels on the hand sketch. Set `CUTAWAY = True` to show a section view, or set `EXPLODE` to pull the parts apart.
+All dimensions are parameters at the top of the script. Lengths are in mm and angles in degrees. `X1`–`X9`, `THETA1` and `THETA2` match the labels on the hand sketch. `SCALE` resizes the whole model. Each part has its own matte color: `ADAPTER_COLOR`, `MOUNT_COLOR` and `COVER_COLOR`. `CUTAWAY = True` shows a section view, and `EXPLODE` pulls the parts apart.
 
 `section_preview.png` is a 2D cross-section drawn from the script's geometry.

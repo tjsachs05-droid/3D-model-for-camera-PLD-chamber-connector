@@ -35,17 +35,17 @@ except ImportError:  # lets the profile math be checked outside Blender
 # =============================================================================
 
 # ---- Labelled on the sketch -------------------------------------------------
-X1 = 24.0      # wall thickness: camera cradle/cover around the camera neck,
+X1 = 15.0      # wall thickness: camera cradle/cover around the camera neck,
                # ChamberAdapter set-screw collar, cone and skirt
-X2 = 88.0      # outer diameter of the CameraMount / CameraCover
-X3 = 20.0      # length of the CameraCover tongue that slides into the groove
-X4 = 14.0      # wall thickness of the CameraMount tube (and around the camera body)
-X5 = 8.0       # radial height of the retaining lip at the chamber end of the tube
-X6 = 60.0      # slant length of the ChamberAdapter cone (outer surface)
+X2 = 72.0      # outer diameter of the CameraMount / CameraCover
+X3 = 33.3      # length of the CameraCover tongue that slides into the groove
+X4 = 10.0      # wall thickness of the CameraMount tube (and around the camera body)
+X5 = 5.0       # radial height of the retaining lip at the chamber end of the tube
+X6 = 70.0      # slant length of the ChamberAdapter cone (outer surface)
 X7 = 56.0      # length of the ChamberAdapter skirt that fits over the chamber port
-X8 = 178.0     # overall length of the CameraMount
-X9 = 60.0      # ChamberAdapter neck length (front face to start of the cone)
-THETA1 = 30.0  # taper from camera-neck bore to camera-body bore, from the axis
+X8 = 250.0     # overall length of the CameraMount
+X9 = 150.0     # ChamberAdapter neck length (front face to start of the cone)
+THETA1 = 65.0  # taper from camera-neck bore to camera-body bore, from the axis
 THETA2 = 45.0  # ChamberAdapter cone angle, from the axis
 
 # ---- Not labelled on the sketch ---------------------------------------------
@@ -53,7 +53,7 @@ NECK_BORE_LENGTH = 30.0  # length of the narrow bore around the camera's neck
 COVER_LENGTH = 68.0      # length of the CameraCover (= where the full tube starts)
 TONGUE_THICKNESS = 5.0   # radial thickness of the cover's tongue
 JOINT_CLEARANCE = 0.3    # gap around the tongue inside the groove
-LIP_THICKNESS = 4.0      # axial thickness of the x5 retaining lip
+LIP_THICKNESS = 10.0     # axial thickness of the x5 retaining lip
 TUBE_CLEARANCE = 0.5     # radial gap between the tube and the ChamberAdapter bore
 COLLAR_LENGTH = 22.0     # length of the ChamberAdapter bore that grips the tube
 INSERTION_DEPTH = 43.0   # how far the tube end sits inside the ChamberAdapter
@@ -65,13 +65,18 @@ SCREW_COUNT = 2                     # evenly spaced around the collar
 SCREW_ANGLE = 90.0                  # angle of the first screw (90 = straight up)
 SCREW_POSITION = None               # mm from adapter front face; None = collar middle
 
+# ---- Size -------------------------------------------------------------------
+SCALE = 1.0              # uniform scale for the whole finished model; the screw
+                         # holes and clearances scale with it
+
 # ---- Display ----------------------------------------------------------------
 SEGMENTS = 128           # facets around the axis (keep it a multiple of 4)
-EXPLODE = 0.0            # mm to pull the parts apart for viewing
-CUTAWAY = False          # remove the -Y half of every part to show the cross-section
-COLOR = (0.5, 0.5, 0.5)  # matte grey
+EXPLODE = 0.0            # mm (after scaling) to pull the parts apart for viewing
+CUTAWAY = True           # remove the -Y half of every part to show the cross-section
+ADAPTER_COLOR = (0.50, 0.50, 0.50)  # ChamberAdapter: matte grey
+MOUNT_COLOR = (0.20, 0.35, 0.65)    # CameraMount: matte blue
+COVER_COLOR = (0.80, 0.45, 0.15)    # CameraCover: matte orange
 COLLECTION_NAME = "PLD Camera Connector"
-MATERIAL_NAME = "Matte Grey"
 
 
 # =============================================================================
@@ -122,6 +127,7 @@ def check_dimensions(g):
         if not ok:
             problems.append(msg)
 
+    need(SCALE > 0, "SCALE must be greater than 0")
     need(0 < THETA1 < 90 and 0 < THETA2 < 90, "THETA1 and THETA2 must be between 0 and 90")
     need(g["r_neck"] > 1, "X1 must be smaller than X2 / 2 (camera-neck bore would vanish)")
     need(X4 < X1, "X4 must be smaller than X1 (the camera-body bore is wider than the neck bore)")
@@ -288,9 +294,9 @@ def boolean(target, cutter, operation='DIFFERENCE'):
     bpy.data.meshes.remove(cutter_mesh)
 
 
-def matte_grey():
-    mat = bpy.data.materials.get(MATERIAL_NAME) or bpy.data.materials.new(MATERIAL_NAME)
-    mat.diffuse_color = (*COLOR, 1.0)  # solid-mode viewport colour
+def matte_material(name, color):
+    mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    mat.diffuse_color = (*color, 1.0)  # solid-mode viewport colour
     mat.roughness = 1.0
     mat.metallic = 0.0
     if mat.node_tree is None:
@@ -302,7 +308,7 @@ def matte_grey():
         out = next((n for n in nodes if n.type == 'OUTPUT_MATERIAL'), None) \
             or nodes.new('ShaderNodeOutputMaterial')
         links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
-    settings = {"Base Color": (*COLOR, 1.0), "Roughness": 1.0, "Metallic": 0.0,
+    settings = {"Base Color": (*color, 1.0), "Roughness": 1.0, "Metallic": 0.0,
                 "Specular IOR Level": 0.0}
     for socket, value in settings.items():
         if socket in bsdf.inputs:
@@ -363,21 +369,23 @@ def main():
     check_dimensions(g)
     setup_units()
     coll = clean_collection(COLLECTION_NAME)
-    mat = matte_grey()
 
     adapter = build_chamber_adapter(g, coll)
     mount = build_camera_mount(g, coll)
     cover = build_camera_cover(g, coll)
+    parts = [(adapter, ADAPTER_COLOR), (mount, MOUNT_COLOR), (cover, COVER_COLOR)]
 
-    adapter.location.x = X8 - INSERTION_DEPTH + EXPLODE
+    for obj, _ in parts:
+        obj.data.transform(Matrix.Scale(SCALE, 4))
+    adapter.location.x = (X8 - INSERTION_DEPTH) * SCALE + EXPLODE
     cover.location = (-EXPLODE, 0.0, EXPLODE)
 
-    for obj in (adapter, mount, cover):
+    for obj, color in parts:
         if CUTAWAY:
             cutaway(obj, coll)
-        finish_object(obj, mat)
-    print(f"Built {COLLECTION_NAME}: adapter OD {2 * g['a_skirt_out']:.1f} mm, "
-          f"overall length {X8 - INSERTION_DEPTH + g['z_end']:.1f} mm")
+        finish_object(obj, matte_material(f"{obj.name} Matte", color))
+    print(f"Built {COLLECTION_NAME}: adapter OD {2 * g['a_skirt_out'] * SCALE:.1f} mm, "
+          f"overall length {(X8 - INSERTION_DEPTH + g['z_end']) * SCALE:.1f} mm")
 
 
 if __name__ == "__main__" and bpy is not None:
