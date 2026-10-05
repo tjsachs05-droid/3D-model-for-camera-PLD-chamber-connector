@@ -263,7 +263,9 @@ def revolve(name, profile, coll, start=0.0, sweep=360.0):
     verts = []
     for i in range(rings):
         a = math.radians(start + sweep * i / steps)
-        ca, sa = math.cos(a), math.sin(a)
+        # Rounding makes 0/90/180/270 degrees exact, so points meant to lie on
+        # the cover split and cutaway planes really do (booleans need that).
+        ca, sa = round(math.cos(a), 12), round(math.sin(a), 12)
         verts.append([bm.verts.new((x, r * ca, r * sa)) for r, x in profile])
     for i in range(steps):
         ring, nxt = verts[i], verts[(i + 1) % rings]
