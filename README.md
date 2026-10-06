@@ -15,12 +15,17 @@ blender --python <script>.py
 ```
 
 ## Chamber connector: `pld_camera_connector.py`
-- **ChamberAdapter**: fits over the PLD chamber port and grips the camera tube with 5/16"-24 set screws.
+- **ChamberAdapter**: fits over the PLD chamber viewport and grips the camera tube with 5/16"-24 set screws.
 - **CameraMount**: a bottom half-cylinder cradle for the camera, joined to a full tube that slides into the adapter. A lip at its chamber end keeps it from pulling out.
 - **CameraCover**: a top half-cylinder that covers the camera. Its tongue slides into a groove in the CameraMount tube.
 - **ChamberAdapter2**: a separate copy of the adapter placed below the assembly. It has its own `ADAPTER2_*` parameters (defaults match the ChamberAdapter), so you can try a variant side by side. `ADAPTER2_GAP` sets the space between it and the assembly.
 
-`X1`–`X9`, `THETA1` and `THETA2` match the labels on the hand sketch. `section_preview.png` is a 2D cross-section drawn from the script's geometry.
+The three main dimensions are in their own section at the top of the script:
+- `CAMERA_DIAMETER` is the bore that holds the camera's neck.
+- `VIEWPORT_DIAMETER` is the chamber viewport that the adapter's skirt fits over.
+- `THICKNESS` is the main wall thickness.
+
+The other parameters have descriptive names. The script's docstring maps the hand sketch's x1–x9, θ1 and θ2 labels to these names. `section_preview.png` is a 2D cross-section drawn from the script's geometry.
 
 ## Model telescope: `model_telescope.py`
 A telescoping version. Each tube has an inward lip at its camera end that catches the outward foot of the tube inside it.
