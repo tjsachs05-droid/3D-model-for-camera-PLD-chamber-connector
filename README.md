@@ -18,6 +18,7 @@ blender --python <script>.py
 - **ChamberAdapter**: fits over the PLD chamber port and grips the camera tube with 5/16"-24 set screws.
 - **CameraMount**: a bottom half-cylinder cradle for the camera, joined to a full tube that slides into the adapter. A lip at its chamber end keeps it from pulling out.
 - **CameraCover**: a top half-cylinder that covers the camera. Its tongue slides into a groove in the CameraMount tube.
+- **ChamberAdapter2**: a separate copy of the adapter placed below the assembly. It has its own `ADAPTER2_*` parameters (defaults match the ChamberAdapter), so you can try a variant side by side. `ADAPTER2_GAP` sets the space between it and the assembly.
 
 `X1`–`X9`, `THETA1` and `THETA2` match the labels on the hand sketch. `section_preview.png` is a 2D cross-section drawn from the script's geometry.
 

@@ -16,6 +16,11 @@ Three parts, all built around the global X axis. The camera is on the left
   CameraCover    - a top half-cylinder that covers the camera. Its tongue slides
                    into a groove in the end of the CameraMount tube.
 
+A fourth, separate part sits below the assembly:
+
+  ChamberAdapter2 - a second adapter of the same design with its own ADAPTER2_*
+                    parameters, so a variant can be tried side by side.
+
 All lengths are in millimetres and all angles in degrees. Names X1..X9, THETA1
 and THETA2 match the labels on the hand sketch.
 """
@@ -65,6 +70,23 @@ SCREW_COUNT = 2                     # evenly spaced around the collar
 SCREW_ANGLE = 90.0                  # angle of the first screw (90 = straight up)
 SCREW_POSITION = None               # mm from adapter front face; None = collar middle
 
+# ---- ChamberAdapter2: separate adapter placed below the assembly ------------
+# Each one means the same as the ChamberAdapter parameter with the same name.
+ADAPTER2_X1 = 15.0                          # wall thickness of collar, cone and skirt
+ADAPTER2_X2 = 72.0                          # outer diameter of the tube it is sized to fit
+ADAPTER2_X5 = 5.0                           # radial height of the tube lip it makes room for
+ADAPTER2_X6 = 70.0                          # slant length of the cone (outer surface)
+ADAPTER2_X7 = 56.0                          # length of the skirt
+ADAPTER2_X9 = 150.0                         # neck length (front face to start of the cone)
+ADAPTER2_THETA2 = 45.0                      # cone angle, from the axis
+ADAPTER2_TUBE_CLEARANCE = 0.5               # radial gap between the tube and the bore
+ADAPTER2_COLLAR_LENGTH = 22.0               # length of the bore that grips the tube
+ADAPTER2_SCREW_HOLE_DIAMETER = 0.272 * INCH # 5/16"-24 tap drill
+ADAPTER2_SCREW_COUNT = 2
+ADAPTER2_SCREW_ANGLE = 90.0
+ADAPTER2_SCREW_POSITION = None
+ADAPTER2_GAP = 20.0                         # space between the assembly and ChamberAdapter2
+
 # ---- Size -------------------------------------------------------------------
 SCALE = 1.0              # uniform scale for the whole finished model; the screw
                          # holes and clearances scale with it
@@ -76,6 +98,7 @@ CUTAWAY = True           # remove the -Y half of every part to show the cross-se
 ADAPTER_COLOR = (0.50, 0.50, 0.50)  # ChamberAdapter: matte grey
 MOUNT_COLOR = (0.20, 0.35, 0.65)    # CameraMount: matte blue
 COVER_COLOR = (0.80, 0.45, 0.15)    # CameraCover: matte orange
+ADAPTER2_COLOR = (0.50, 0.50, 0.50) # ChamberAdapter2: matte grey
 COLLECTION_NAME = "PLD Camera Connector"
 
 
@@ -83,9 +106,39 @@ COLLECTION_NAME = "PLD Camera Connector"
 # DERIVED GEOMETRY  (profiles are (radius, axial position) pairs)
 # =============================================================================
 
+ADAPTER_KEYS = ("X1", "X2", "X5", "X6", "X7", "X9", "THETA2", "TUBE_CLEARANCE", "COLLAR_LENGTH",
+                "SCREW_HOLE_DIAMETER", "SCREW_COUNT", "SCREW_ANGLE", "SCREW_POSITION")
+
+
+def adapter_geometry(prefix=""):
+    """Radii and axial positions (from the front face) of an adapter built from
+    the parameters prefix + X1, prefix + X2, ... (see ADAPTER_KEYS)."""
+    p = {k: globals()[prefix + k] for k in ADAPTER_KEYS}
+    t2 = math.radians(p["THETA2"])
+    a = {"prefix": prefix, "p": p}
+    r_tube = p["X2"] / 2
+    a["bore"] = r_tube + p["TUBE_CLEARANCE"]
+    a["out"] = a["bore"] + p["X1"]
+    a["counterbore"] = r_tube + p["X5"] + p["TUBE_CLEARANCE"]
+    a["skirt_out"] = a["out"] + p["X6"] * math.sin(t2)
+    a["skirt_in"] = a["skirt_out"] - p["X1"]
+    a["z_skirt"] = p["X9"] + p["X6"] * math.cos(t2)
+    a["z_end"] = a["z_skirt"] + p["X7"]
+
+    # The inner cone surface is the outer one moved X1 into the material,
+    # which is an axial shift of X1 / sin(theta2).
+    def z_inner_cone(r):
+        return p["X9"] + (r - a["out"]) / math.tan(t2) + p["X1"] / math.sin(t2)
+
+    a["z_cone_in_start"] = z_inner_cone(a["counterbore"])
+    a["z_cone_in_end"] = z_inner_cone(a["skirt_in"])
+    a["z_screw"] = p["COLLAR_LENGTH"] / 2 if p["SCREW_POSITION"] is None else p["SCREW_POSITION"]
+    return a
+
+
 def derived():
     """Every radius and axial position the parts are built from."""
-    t1, t2 = math.radians(THETA1), math.radians(THETA2)
+    t1 = math.radians(THETA1)
     g = {}
 
     # CameraMount / CameraCover, axial position measured from the camera end
@@ -100,23 +153,8 @@ def derived():
     g["groove_out"] = g["tongue_out"] + JOINT_CLEARANCE
     g["groove_depth"] = X3 + JOINT_CLEARANCE
 
-    # ChamberAdapter, axial position measured from its front (camera-side) face
-    g["a_bore"] = g["r_out"] + TUBE_CLEARANCE
-    g["a_out"] = g["a_bore"] + X1
-    g["a_counterbore"] = g["r_out"] + X5 + TUBE_CLEARANCE
-    g["a_skirt_out"] = g["a_out"] + X6 * math.sin(t2)
-    g["a_skirt_in"] = g["a_skirt_out"] - X1
-    g["z_skirt"] = X9 + X6 * math.cos(t2)
-    g["z_end"] = g["z_skirt"] + X7
-
-    # The inner cone surface is the outer one moved X1 into the material,
-    # which is an axial shift of X1 / sin(theta2).
-    def z_inner_cone(r):
-        return X9 + (r - g["a_out"]) / math.tan(t2) + X1 / math.sin(t2)
-
-    g["z_cone_in_start"] = z_inner_cone(g["a_counterbore"])
-    g["z_cone_in_end"] = z_inner_cone(g["a_skirt_in"])
-    g["z_screw"] = COLLAR_LENGTH / 2 if SCREW_POSITION is None else SCREW_POSITION
+    g["adapter"] = adapter_geometry()
+    g["adapter2"] = adapter_geometry("ADAPTER2_")
     return g
 
 
@@ -128,7 +166,7 @@ def check_dimensions(g):
             problems.append(msg)
 
     need(SCALE > 0, "SCALE must be greater than 0")
-    need(0 < THETA1 < 90 and 0 < THETA2 < 90, "THETA1 and THETA2 must be between 0 and 90")
+    need(0 < THETA1 < 90, "THETA1 must be between 0 and 90")
     need(g["r_neck"] > 1, "X1 must be smaller than X2 / 2 (camera-neck bore would vanish)")
     need(X4 < X1, "X4 must be smaller than X1 (the camera-body bore is wider than the neck bore)")
     need(g["z_taper_end"] < COVER_LENGTH, "NECK_BORE_LENGTH plus the THETA1 taper must end before COVER_LENGTH")
@@ -136,33 +174,41 @@ def check_dimensions(g):
          "TONGUE_THICKNESS + 2 * JOINT_CLEARANCE must fit inside the X4 wall with some material left")
     need(COVER_LENGTH + g["groove_depth"] < X8 - LIP_THICKNESS,
          "COVER_LENGTH + X3 must be shorter than X8 minus the lip")
-    need(g["a_counterbore"] < g["a_out"] - 0.5, "X5 must be smaller than X1 (lip pocket breaks through the adapter wall)")
-    need(COLLAR_LENGTH < X9, "COLLAR_LENGTH must be shorter than X9")
-    need(SCREW_HOLE_DIAMETER < COLLAR_LENGTH, "screw hole is wider than the collar")
+    for a in (g["adapter"], g["adapter2"]):
+        n, p = a["prefix"], a["p"]
+        need(0 < p["THETA2"] < 90, f"{n}THETA2 must be between 0 and 90")
+        need(p["X2"] > 0 and p["X1"] > 0, f"{n}X1 and {n}X2 must be greater than 0")
+        need(a["counterbore"] < a["out"] - 0.5,
+             f"{n}X5 must be smaller than {n}X1 (lip pocket breaks through the adapter wall)")
+        need(p["COLLAR_LENGTH"] < p["X9"], f"{n}COLLAR_LENGTH must be shorter than {n}X9")
+        need(p["SCREW_HOLE_DIAMETER"] < p["COLLAR_LENGTH"], f"{n}SCREW_HOLE_DIAMETER is wider than the collar")
+        need(a["z_cone_in_start"] > p["COLLAR_LENGTH"],
+             f"{n}inner cone starts inside the collar; increase {n}X9 or reduce {n}X1/{n}X5")
+        need(a["z_cone_in_end"] < a["z_end"], f"{n}X7 is too short for the cone wall thickness")
+    a = g["adapter"]
     need(INSERTION_DEPTH >= COLLAR_LENGTH + LIP_THICKNESS,
          "INSERTION_DEPTH must put the lip past the collar (>= COLLAR_LENGTH + LIP_THICKNESS)")
-    need(INSERTION_DEPTH <= g["z_cone_in_start"],
-         f"INSERTION_DEPTH must be <= {g['z_cone_in_start']:.1f} (where the inner cone starts)")
-    need(g["z_cone_in_start"] > COLLAR_LENGTH, "inner cone starts inside the collar; increase X9 or reduce X1/X5")
-    need(g["z_cone_in_end"] < g["z_end"], "X7 is too short for the cone wall thickness")
+    need(INSERTION_DEPTH <= a["z_cone_in_start"],
+         f"INSERTION_DEPTH must be <= {a['z_cone_in_start']:.1f} (where the inner cone starts)")
     need(INSERTION_DEPTH < X8 - COVER_LENGTH - g["groove_depth"],
          "the adapter would cover the cover/tube joint; reduce INSERTION_DEPTH or increase X8")
     if problems:
         raise ValueError("Dimension problems:\n  - " + "\n  - ".join(problems))
 
 
-def adapter_profile(g):
+def adapter_profile(a):
+    x9, collar = a["p"]["X9"], a["p"]["COLLAR_LENGTH"]
     return [
-        (g["a_bore"], 0.0),
-        (g["a_out"], 0.0),
-        (g["a_out"], X9),
-        (g["a_skirt_out"], g["z_skirt"]),
-        (g["a_skirt_out"], g["z_end"]),
-        (g["a_skirt_in"], g["z_end"]),
-        (g["a_skirt_in"], g["z_cone_in_end"]),
-        (g["a_counterbore"], g["z_cone_in_start"]),
-        (g["a_counterbore"], COLLAR_LENGTH),
-        (g["a_bore"], COLLAR_LENGTH),
+        (a["bore"], 0.0),
+        (a["out"], 0.0),
+        (a["out"], x9),
+        (a["skirt_out"], a["z_skirt"]),
+        (a["skirt_out"], a["z_end"]),
+        (a["skirt_in"], a["z_end"]),
+        (a["skirt_in"], a["z_cone_in_end"]),
+        (a["counterbore"], a["z_cone_in_start"]),
+        (a["counterbore"], collar),
+        (a["bore"], collar),
     ]
 
 
@@ -344,18 +390,20 @@ def finish_object(obj, mat):
 # PARTS
 # =============================================================================
 
-def build_chamber_adapter(g, coll):
-    adapter = revolve("ChamberAdapter", adapter_profile(g), coll)
-    if SCREW_COUNT > 0:
+def build_chamber_adapter(name, a, coll):
+    adapter = revolve(name, adapter_profile(a), coll)
+    p = a["p"]
+    if p["SCREW_COUNT"] > 0:
         bm = bmesh.new()
-        r_mid = (g["a_bore"] + g["a_out"]) / 2
-        depth = g["a_out"] - g["a_bore"] + 4
-        for i in range(SCREW_COUNT):
-            a = math.radians(SCREW_ANGLE + 360.0 * i / SCREW_COUNT)
-            place = (Matrix.Translation((g["z_screw"], r_mid * math.cos(a), r_mid * math.sin(a)))
-                     @ Matrix.Rotation(a - math.pi / 2, 4, 'X'))
-            bmesh.ops.create_cone(bm, cap_ends=True, segments=48, radius1=SCREW_HOLE_DIAMETER / 2,
-                                  radius2=SCREW_HOLE_DIAMETER / 2, depth=depth, matrix=place)
+        r_mid = (a["bore"] + a["out"]) / 2
+        depth = a["out"] - a["bore"] + 4
+        radius = p["SCREW_HOLE_DIAMETER"] / 2
+        for i in range(p["SCREW_COUNT"]):
+            ang = math.radians(p["SCREW_ANGLE"] + 360.0 * i / p["SCREW_COUNT"])
+            place = (Matrix.Translation((a["z_screw"], r_mid * math.cos(ang), r_mid * math.sin(ang)))
+                     @ Matrix.Rotation(ang - math.pi / 2, 4, 'X'))
+            bmesh.ops.create_cone(bm, cap_ends=True, segments=48, radius1=radius,
+                                  radius2=radius, depth=depth, matrix=place)
         boolean(adapter, finish_mesh("ScrewHoles", bm, coll))
     return adapter
 
@@ -387,22 +435,29 @@ def main():
     setup_units()
     coll = clean_collection(COLLECTION_NAME)
 
-    adapter = build_chamber_adapter(g, coll)
+    adapter = build_chamber_adapter("ChamberAdapter", g["adapter"], coll)
     mount = build_camera_mount(g, coll)
     cover = build_camera_cover(g, coll)
-    parts = [(adapter, ADAPTER_COLOR), (mount, MOUNT_COLOR), (cover, COVER_COLOR)]
+    adapter2 = build_chamber_adapter("ChamberAdapter2", g["adapter2"], coll)
+    parts = [(adapter, ADAPTER_COLOR), (mount, MOUNT_COLOR), (cover, COVER_COLOR),
+             (adapter2, ADAPTER2_COLOR)]
 
     for obj, _ in parts:
         obj.data.transform(Matrix.Scale(SCALE, 4))
     adapter.location.x = (X8 - INSERTION_DEPTH) * SCALE + EXPLODE
     cover.location = (-EXPLODE, 0.0, EXPLODE)
+    # Directly below the ChamberAdapter, ADAPTER2_GAP clear of the assembly.
+    assembly_radius = max(g["adapter"]["skirt_out"], g["r_out"] + X5)
+    drop = assembly_radius + ADAPTER2_GAP + g["adapter2"]["skirt_out"]
+    adapter2.location = (adapter.location.x, 0.0, -drop * SCALE)
 
     for obj, color in parts:
         if CUTAWAY:
             cutaway(obj, coll)
         finish_object(obj, matte_material(f"{obj.name} Matte", color))
-    print(f"Built {COLLECTION_NAME}: adapter OD {2 * g['a_skirt_out'] * SCALE:.1f} mm, "
-          f"overall length {(X8 - INSERTION_DEPTH + g['z_end']) * SCALE:.1f} mm")
+    print(f"Built {COLLECTION_NAME}: adapter OD {2 * g['adapter']['skirt_out'] * SCALE:.1f} mm, "
+          f"overall length {(X8 - INSERTION_DEPTH + g['adapter']['z_end']) * SCALE:.1f} mm, "
+          f"adapter2 OD {2 * g['adapter2']['skirt_out'] * SCALE:.1f} mm")
 
 
 if __name__ == "__main__" and bpy is not None:
