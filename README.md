@@ -22,13 +22,15 @@ This is the design being taken forward for 3D printing. Parameters are in inches
 - **ChamberAdapter**: grips the mount tube with set screws in its collar, then flares out to a face that sits on the viewport flange. An indent in that face fits around the protruding glass. Three prongs reach over the flange's side, each with a set screw that clamps onto it.
 - **ChamberAdapter2**: the same adapter, set up for the alternate 6" viewport and placed below the assembly. It has its own `ADAPTER2_*` parameters. `ADAPTER2_GAP` sets the space between it and the assembly.
 
-Every screw hole is sized to tap for 5/16"-24.
+Every screw hole is sized to tap for 5/16"-24. Each one sits in a raised pad (`SCREW_PAD_DIAMETER`, `SCREW_PAD_THICKNESS`), so there's more plastic for the threads. The mount tube also gets a band (`JOINT_PAD_THICKNESS`) where the cover's tongue slides in, so the walls on either side of the groove aren't too thin.
+
+The defaults fit an Ender-3 V2 (220 × 220 × 250 mm) with each part printed standing on end. The adapter is 9.75" tall including the prongs, and the mount is 9.75" long. `PRINTER_MAX_HEIGHT` and `PRINTER_BED_SIZE` make the script stop with an error if a part grows too big. Set them to `None` to skip the check.
 
 The main dimensions are in their own section at the top of the script:
 - `CAMERA_DIAMETER` (1.6") is the camera's neck.
 - `FOCUS_DIAL_DIAMETER` (2") is the camera's focus dial.
 - `VIEWPORT_DIAMETER` (8") is the raised viewport flange.
-- `THICKNESS` (3/16") is the wall thickness of every part, including the prongs.
+- `THICKNESS` (1/8") is the wall thickness of every part, including the prongs.
 
 The glass is set by `GLASS_DIAMETER` and `RECESS_DEPTH`. `INSERTION_DEPTH` sets how far the mount sits in the adapter, which sets the camera-to-viewport distance. `section_preview.png` is a cutaway render.
 
