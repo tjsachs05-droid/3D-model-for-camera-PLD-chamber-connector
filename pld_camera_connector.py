@@ -79,7 +79,8 @@ JOINT_PAD_THICKNESS = 1 / 16 # extra wall on the outside of the mount tube where
 
 # ---- ChamberAdapter ---------------------------------------------------------
 ADAPTER_LENGTH = 8.5         # front face to the face that sits on the flange (prongs extra)
-CONE_ANGLE = 45.0            # cone angle, degrees from the axis
+CONE_ANGLE = 45.0            # cone angle, degrees from the axis (above 45 the cone
+                             # needs support when printed small end down)
 RIM_LENGTH = 0.5             # straight section between the cone and the flange face
 COLLAR_LENGTH = 1.0          # length of the bore that grips the mount tube
 INSERTION_DEPTH = 1.5        # how far the mount tube sits inside the adapter
@@ -206,6 +207,20 @@ def adapter_geometry(prefix=""):
 
     a["z_cone_in_start"] = z_inner_cone(a["counterbore"])
     a["z_cone_in_end"] = z_inner_cone(a["prong_in"])
+
+    # Behind the flange face, the inside slopes out at 45 degrees from the
+    # indent's edge until it meets the cone (or the rim), so the part prints
+    # small end down without support. Solve recess + (z_seat - z) = r on the
+    # inner cone for where the slope meets it.
+    k = 1 / math.tan(t)
+    r_meet = ((a["z_seat"] + a["recess"] - a["z_cone"] + a["out"] * k - wall / math.sin(t))
+              / (1 + k))
+    if r_meet <= a["prong_in"]:
+        a["slope"] = [(r_meet, a["z_seat"] - (r_meet - a["recess"]))]
+    else:
+        a["slope"] = [(a["prong_in"], a["z_seat"] - (a["prong_in"] - a["recess"])),
+                      (a["prong_in"], a["z_cone_in_end"])]
+    a["r_slope_meet"] = min(r_meet, a["prong_in"])
     a["z_screw"] = p["COLLAR_LENGTH"] / 2 if p["SCREW_POSITION"] is None else p["SCREW_POSITION"]
     a["z_prong_screw"] = a["z_end"] + (p["PRONG_LENGTH"] / 2 if p["PRONG_SCREW_POSITION"] is None
                                        else p["PRONG_SCREW_POSITION"])
@@ -288,9 +303,16 @@ def check_dimensions(g):
         need(a["prong_out"] > a["out"] + MIN_WALL,
              f"{n('VIEWPORT_DIAMETER')} must be larger than {2 * a['out']:.2f} (the adapter's collar)")
         need(p["RECESS_DEPTH"] > 0, f"{n('RECESS_DEPTH')} must be greater than 0")
-        need(a["z_cone_in_end"] <= a["z_seat"],
-             f"{n('RIM_LENGTH')} must be at least "
-             f"{p['RIM_LENGTH'] + a['z_cone_in_end'] - a['z_seat']:.3f} to fit the indent behind the cone")
+        need(a["r_slope_meet"] > a["counterbore"] + MIN_WALL,
+             f"the 45 degree slope behind the flange face runs past the cone; reduce {n('RECESS_DEPTH')} "
+             f"or increase {n('ADAPTER_LENGTH')}")
+        if a["z_seat"] >= a["z_rim"]:
+            outer_at_seat = a["prong_out"]
+        else:
+            outer_at_seat = a["out"] + (a["z_seat"] - a["z_cone"]) * math.tan(math.radians(p["CONE_ANGLE"]))
+        need(outer_at_seat >= a["recess"] + p["THICKNESS"],
+             f"{n('RECESS_DEPTH')} reaches past the rim into the cone; make {n('RIM_LENGTH')} at least "
+             f"{n('RECESS_DEPTH')}")
         need(a["z_cone"] >= p["COLLAR_LENGTH"],
              f"{n('ADAPTER_LENGTH')} is too short for the cone; make it at least "
              f"{p['ADAPTER_LENGTH'] + p['COLLAR_LENGTH'] - a['z_cone']:.2f}")
@@ -355,8 +377,7 @@ def adapter_profile(a):
         (a["prong_in"], a["z_end"]),
         (a["recess"], a["z_end"]),
         (a["recess"], a["z_seat"]),
-        (a["prong_in"], a["z_seat"]),
-        (a["prong_in"], a["z_cone_in_end"]),
+        *a["slope"],
         (a["counterbore"], a["z_cone_in_start"]),
         (a["counterbore"], collar),
         (a["bore"], collar),
@@ -623,9 +644,10 @@ def cutaway(obj, coll):
 # =============================================================================
 
 # Which end each part stands on when printed. The mount stands on its lip end
-# (a full ring, and the cover's groove then opens upward); the adapter on its
-# prong tips. Everything else stands on its camera end.
-PRINT_CHAMBER_END_DOWN = {"CameraMount", "ChamberAdapter", "ChamberAdapter2"}
+# (a full ring, and the cover's groove then opens upward). The cover and the
+# adapters stand on their camera end; the adapter's flange face then prints
+# last as a clean top surface, with its 45 degree slope underneath.
+PRINT_CHAMBER_END_DOWN = {"CameraMount"}
 
 
 def script_folder():

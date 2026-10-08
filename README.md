@@ -40,7 +40,7 @@ Each run of the script writes one STL per part to `stl/`: `CameraMount.stl`, `Ca
 The files are always whole parts, even when `CUTAWAY` is on. They're in millimetres, watertight, and already standing the way they should print:
 - **CameraMount** stands on its lip end, which is a full ring on the bed, so the cover's groove opens upward. The only overhangs are two small ledges, and both print fine without support.
 - **CameraCover** stands on its camera end and needs no supports.
-- **ChamberAdapter** stands on its three prong tips. It needs support under its flange face, between the prongs, and a brim helps it stay stuck to the bed.
+- **ChamberAdapter** stands on its small (collar) end, so the flange face prints last as a clean top surface. Behind the face, the inside slopes at 45° down to the cone, so the part needs no supports. Keep `CONE_ANGLE` at 45 or less for the same reason. A brim helps the narrow base stay stuck to the bed.
 
 Print with at least 4 walls (perimeters) so the plastic around the screw holes is solid. Then drill the holes out with a letter-I (0.272") bit and cut the threads with a 5/16"-24 tap.
 
