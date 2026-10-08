@@ -38,7 +38,8 @@ The glass is set by `GLASS_DIAMETER` and `RECESS_DEPTH`. `INSERTION_DEPTH` sets 
 Each run of the script writes one STL per part to `stl/`: `CameraMount.stl`, `CameraCover.stl` and `ChamberAdapter.stl`. `EXPORT_FOLDER` and `EXPORT_PARTS` control this. Add `"ChamberAdapter2"` to `EXPORT_PARTS` to get the 6" adapter too.
 
 The files are always whole parts, even when `CUTAWAY` is on. They're in millimetres, watertight, and already standing the way they should print:
-- **CameraMount** and **CameraCover** stand on their camera end and need no supports.
+- **CameraMount** stands on its lip end, which is a full ring on the bed, so the cover's groove opens upward. The only overhangs are two small ledges, and both print fine without support.
+- **CameraCover** stands on its camera end and needs no supports.
 - **ChamberAdapter** stands on its three prong tips. It needs support under its flange face, between the prongs, and a brim helps it stay stuck to the bed.
 
 Print with at least 4 walls (perimeters) so the plastic around the screw holes is solid. Then drill the holes out with a letter-I (0.272") bit and cut the threads with a 5/16"-24 tap.

@@ -622,9 +622,10 @@ def cutaway(obj, coll):
 # EXPORT
 # =============================================================================
 
-# Which end each part stands on when printed: the adapter on its flange end
-# (prong tips down), the mount and cover on their camera end.
-PRINT_FLANGE_END_DOWN = {"ChamberAdapter", "ChamberAdapter2"}
+# Which end each part stands on when printed. The mount stands on its lip end
+# (a full ring, and the cover's groove then opens upward); the adapter on its
+# prong tips. Everything else stands on its camera end.
+PRINT_CHAMBER_END_DOWN = {"CameraMount", "ChamberAdapter", "ChamberAdapter2"}
 
 
 def script_folder():
@@ -659,8 +660,8 @@ def write_stl(path, obj):
     noise that can make the triangles disagree along shared edges)."""
     mesh = obj.data
     mesh.calc_loop_triangles()
-    if obj.name in PRINT_FLANGE_END_DOWN:
-        def upright(co):  # +X end down
+    if obj.name in PRINT_CHAMBER_END_DOWN:
+        def upright(co):  # chamber (+X) end down
             return (co[2], co[1], -co[0])
     else:
         def upright(co):  # camera (-X) end down
