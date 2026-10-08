@@ -72,7 +72,7 @@ NECK_BORE_LENGTH = 1.0       # length of the CAMERA_DIAMETER section at the came
 LIP_HEIGHT = 1 / 8           # radial height of the retaining lip at the chamber end
 LIP_THICKNESS = 1 / 4        # axial thickness of that lip
 COVER_LENGTH = 2.75          # length of the cover (= where the full tube starts)
-TONGUE_LENGTH = 1.25         # length of the cover's tongue that slides into the groove
+TONGUE_LENGTH = 5 / 12       # length of the cover's tongue that slides into the groove (0.417")
 TONGUE_THICKNESS = 1 / 16    # radial thickness of the tongue
 JOINT_PAD_THICKNESS = 1 / 16 # extra wall on the outside of the mount tube where the
                              # groove is, so the groove's walls aren't too thin
