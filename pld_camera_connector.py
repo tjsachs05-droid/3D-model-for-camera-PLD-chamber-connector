@@ -31,6 +31,8 @@ part printed standing on end; the PRINTER_* checks enforce that.
 """
 
 import math
+import os
+import struct
 
 try:
     import bpy
@@ -131,6 +133,13 @@ SCALE = 1.0                  # uniform scale for the whole finished model; the s
 # ---- Printer (each part is checked printed standing on end) -----------------
 PRINTER_MAX_HEIGHT = 250 / 25.4  # Ender-3 V2: 250 mm; None skips the check
 PRINTER_BED_SIZE = 220 / 25.4    # Ender-3 V2: 220 x 220 mm; None skips the check
+
+# ---- Export -----------------------------------------------------------------
+# Every run writes one STL per part (always whole, never cut away), in mm and
+# stood on end the way it should print. A relative folder is next to this script.
+EXPORT_FOLDER = "stl"        # None turns export off
+EXPORT_PARTS = ("CameraMount", "CameraCover", "ChamberAdapter")  # add "ChamberAdapter2"
+                                                                 # for the 6" viewport
 
 # ---- Display ----------------------------------------------------------------
 SEGMENTS = 128               # facets around the axis (keep it a multiple of 4)
@@ -609,6 +618,68 @@ def cutaway(obj, coll):
     boolean(obj, finish_mesh("CutawayBox", bm, coll))
 
 
+# =============================================================================
+# EXPORT
+# =============================================================================
+
+# Which end each part stands on when printed: the adapter on its flange end
+# (prong tips down), the mount and cover on their camera end.
+PRINT_FLANGE_END_DOWN = {"ChamberAdapter", "ChamberAdapter2"}
+
+
+def script_folder():
+    """Folder this script lives in. Run from Blender's text editor, __file__ is
+    only the text's name, so the loaded text's own file path is used instead."""
+    path = globals().get("__file__", "")
+    if os.path.isfile(path):
+        return os.path.dirname(os.path.abspath(path))
+    text = bpy.data.texts.get(os.path.basename(path))
+    if text is not None and text.filepath:
+        return os.path.dirname(bpy.path.abspath(text.filepath))
+    if bpy.data.filepath:
+        return os.path.dirname(bpy.data.filepath)
+    return None
+
+
+def export_folder():
+    folder = os.path.expanduser(EXPORT_FOLDER)
+    if not os.path.isabs(folder):
+        base = script_folder()
+        if base is None:
+            raise ValueError("Can't tell where this script is saved; set EXPORT_FOLDER to a full path")
+        folder = os.path.join(base, folder)
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def write_stl(path, obj):
+    """Binary STL of obj's mesh, stood on end for printing: its axis along Z,
+    resting on Z = 0 and centred on the bed. Uses Blender's own triangles, and
+    stands the part up by swapping axes exactly (a rotation matrix adds float
+    noise that can make the triangles disagree along shared edges)."""
+    mesh = obj.data
+    mesh.calc_loop_triangles()
+    if obj.name in PRINT_FLANGE_END_DOWN:
+        def upright(co):  # +X end down
+            return (co[2], co[1], -co[0])
+    else:
+        def upright(co):  # camera (-X) end down
+            return (-co[2], co[1], co[0])
+    pts = [upright(v.co) for v in mesh.vertices]
+    lo = [min(p[i] for p in pts) for i in range(3)]
+    hi = [max(p[i] for p in pts) for i in range(3)]
+    shift = (-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, -lo[2])
+    pts = [(p[0] + shift[0], p[1] + shift[1], p[2] + shift[2]) for p in pts]
+    with open(path, "wb") as f:
+        f.write(obj.name.encode()[:80].ljust(80, b" "))
+        f.write(struct.pack("<I", len(mesh.loop_triangles)))
+        for tri in mesh.loop_triangles:
+            f.write(struct.pack("<3f", *upright(tri.normal)))
+            for i in tri.vertices:
+                f.write(struct.pack("<3f", *pts[i]))
+            f.write(b"\0\0")
+
+
 def main():
     g = derived()
     check_dimensions(g)
@@ -633,6 +704,14 @@ def main():
     assembly_radius = max(g["adapter"]["max_r"], g["max_r"])
     drop = assembly_radius + ADAPTER2_GAP + g["adapter2"]["max_r"]
     adapter2.location = (adapter.location.x, 0.0, -drop * k)
+
+    # Export before any cutaway so the files are always whole parts.
+    if EXPORT_FOLDER is not None:
+        folder = export_folder()
+        for obj, _ in parts:
+            if obj.name in EXPORT_PARTS:
+                write_stl(os.path.join(folder, obj.name + ".stl"), obj)
+        print(f"Wrote {', '.join(n + '.stl' for n in EXPORT_PARTS)} to {folder}")
 
     for obj, color in parts:
         if CUTAWAY:
