@@ -47,7 +47,7 @@ except ImportError:  # lets the profile math be checked outside Blender
 # =============================================================================
 
 CAMERA_DIAMETER = 1.6        # camera neck, held at the camera end of the mount
-FOCUS_DIAL_DIAMETER = 2.0    # camera focus dial, the wider part of the camera
+FOCUS_DIAL_DIAMETER = 2.125  # camera focus dial, the wider part of the camera
 VIEWPORT_DIAMETER = 8.0      # raised viewport flange the prongs clamp around
 THICKNESS = 1 / 8            # wall thickness of every part, including the prongs
                              # (screw holes and the cover joint get extra pads)
@@ -67,11 +67,14 @@ FIT_CLEARANCE = 0.01         # radial gap wherever parts slide together or fit
                              # around the camera, glass or flange
 
 # ---- CameraMount and CameraCover --------------------------------------------
-MOUNT_LENGTH = 9.75          # overall length: neck section + focus dial section
-NECK_BORE_LENGTH = 1.0       # length of the CAMERA_DIAMETER section at the camera end
+MOUNT_LENGTH = 9.75          # overall length: neck grip + 45 degree slope + focus dial section
+NECK_BORE_LENGTH = 0.75      # length of the straight CAMERA_DIAMETER grip at the camera end;
+                             # the bore then widens at 45 degrees to the focus dial bore
+COVER_SETBACK = 0.5          # how far the cover stops short of the mount's camera end
 LIP_HEIGHT = 1 / 8           # radial height of the retaining lip at the chamber end
 LIP_THICKNESS = 1 / 4        # axial thickness of that lip
-COVER_LENGTH = 2.75          # length of the cover (= where the full tube starts)
+COVER_LENGTH = 2.75          # mount's camera end to where its full tube starts (the cover's
+                             # far end); the cover itself starts COVER_SETBACK in
 TONGUE_LENGTH = 5 / 12       # length of the cover's tongue that slides into the groove (0.417")
 TONGUE_THICKNESS = 1 / 16    # radial thickness of the tongue
 JOINT_PAD_THICKNESS = 1 / 16 # extra wall on the outside of the mount tube where the
@@ -96,13 +99,14 @@ SCREW_HOLE_DIAMETER = 0.272  # tap drill (letter I), used for every screw hole
 SCREW_COUNT = 2              # collar set screws, evenly spaced
 SCREW_ANGLE = 90.0           # angle of the first collar screw (90 = straight up)
 SCREW_POSITION = None        # from the adapter front face; None = collar middle
-SCREW_PAD_DIAMETER = 0.75    # round pad on the outside around every screw hole
+SCREW_PAD_DIAMETER = 0.625   # flat outer face of the round pad around every screw hole;
+                             # its sides widen at 45 degrees down to the wall
 SCREW_PAD_THICKNESS = 1 / 8  # how far the pad stands out, for more thread
 
 # ---- ChamberAdapter2: alternate 6" viewport, placed below the assembly ------
 # Each one means the same as the ChamberAdapter parameter with the same name
 # (ADAPTER2_LENGTH is the ADAPTER_LENGTH of this part).
-ADAPTER2_FOCUS_DIAL_DIAMETER = 2.0  # with ADAPTER2_THICKNESS, sets the tube size it fits
+ADAPTER2_FOCUS_DIAL_DIAMETER = 2.125  # with ADAPTER2_THICKNESS, sets the tube size it fits
 ADAPTER2_VIEWPORT_DIAMETER = 6.0
 ADAPTER2_THICKNESS = 1 / 8
 ADAPTER2_GLASS_DIAMETER = 4.5
@@ -123,7 +127,7 @@ ADAPTER2_SCREW_HOLE_DIAMETER = 0.272
 ADAPTER2_SCREW_COUNT = 2
 ADAPTER2_SCREW_ANGLE = 90.0
 ADAPTER2_SCREW_POSITION = None
-ADAPTER2_SCREW_PAD_DIAMETER = 0.75
+ADAPTER2_SCREW_PAD_DIAMETER = 0.625
 ADAPTER2_SCREW_PAD_THICKNESS = 1 / 8
 ADAPTER2_GAP = 1.0                  # space between the assembly and ChamberAdapter2
 
@@ -154,6 +158,7 @@ COLLECTION_NAME = "PLD Camera Connector"
 
 MM_PER_INCH = 25.4
 MIN_WALL = 1 / 32            # thinnest wall the dimension checks accept
+PAD_OVERLAP = 0.02           # how far each screw pad's sloped part starts inside the wall
 
 
 # =============================================================================
@@ -244,6 +249,7 @@ def derived():
     g["r_neck"] = CAMERA_DIAMETER / 2 + FIT_CLEARANCE
     g["r_body"] = FOCUS_DIAL_DIAMETER / 2 + FIT_CLEARANCE
     g["r_out"] = g["r_body"] + THICKNESS
+    g["z_taper_end"] = NECK_BORE_LENGTH + (g["r_body"] - g["r_neck"])  # 45 degree slope
     g["r_pad"] = g["r_out"] + JOINT_PAD_THICKNESS
     # The tongue and groove sit in the middle of the padded wall at the joint.
     r_mid = (g["r_body"] + g["r_pad"]) / 2
@@ -270,7 +276,11 @@ def check_dimensions(g):
     need(SCALE > 0, "SCALE must be greater than 0")
     need(CAMERA_DIAMETER > 0 and THICKNESS > 0, "CAMERA_DIAMETER and THICKNESS must be greater than 0")
     need(FOCUS_DIAL_DIAMETER >= CAMERA_DIAMETER, "FOCUS_DIAL_DIAMETER must be at least CAMERA_DIAMETER")
-    need(0 < NECK_BORE_LENGTH < COVER_LENGTH, "NECK_BORE_LENGTH must be between 0 and COVER_LENGTH")
+    need(NECK_BORE_LENGTH > 0, "NECK_BORE_LENGTH must be greater than 0")
+    need(g["z_taper_end"] < COVER_LENGTH,
+         f"NECK_BORE_LENGTH plus its 45 degree slope ({g['z_taper_end']:.3f}) must end before COVER_LENGTH")
+    need(0 <= COVER_SETBACK < NECK_BORE_LENGTH,
+         "COVER_SETBACK must be at least 0 and shorter than NECK_BORE_LENGTH (the cover has to reach the neck grip)")
     need(JOINT_PAD_THICKNESS >= 0, "JOINT_PAD_THICKNESS can't be negative")
     need(g["tongue_out"] <= g["r_out"] + 1e-9,
          "TONGUE_THICKNESS + JOINT_PAD_THICKNESS must not be more than THICKNESS "
@@ -288,15 +298,17 @@ def check_dimensions(g):
             return param_name(a["prefix"], key)
 
         hole = p["SCREW_HOLE_DIAMETER"]
-        pad_r = p["SCREW_PAD_DIAMETER"] / 2
+        pad_r = p["SCREW_PAD_DIAMETER"] / 2               # flat outer face
+        base_r = pad_r + p["SCREW_PAD_THICKNESS"]         # where the 45 degree sides meet the wall
+        foot_r = base_r + PAD_OVERLAP                     # widest point, just inside the wall
         need(p["SCREW_PAD_THICKNESS"] >= 0, f"{n('SCREW_PAD_THICKNESS')} can't be negative")
         need(pad_r >= hole / 2 + MIN_WALL,
              f"{n('SCREW_PAD_DIAMETER')} must be at least {hole + 2 * MIN_WALL:.3f} (wider than the hole)")
         if p["SCREW_COUNT"] > 0:
-            need(pad_r <= a["z_screw"] and a["z_screw"] + pad_r <= p["COLLAR_LENGTH"],
-                 f"the collar screw pads don't fit; make {n('COLLAR_LENGTH')} at least {2 * pad_r:.3f} "
+            need(foot_r <= a["z_screw"] and a["z_screw"] + foot_r <= p["COLLAR_LENGTH"],
+                 f"the collar screw pads don't fit; make {n('COLLAR_LENGTH')} at least {2 * foot_r:.3f} "
                  f"or move {n('SCREW_POSITION')}")
-            need(math.hypot(a["bore"] + 0.02, pad_r) < a["out"],
+            need(math.hypot(a["bore"] + PAD_OVERLAP, base_r) < a["out"],
                  f"{n('SCREW_PAD_DIAMETER')} is too wide for the curve of the collar")
         need(a["recess"] <= a["prong_in"] - MIN_WALL,
              f"{n('GLASS_DIAMETER')} must be smaller than {n('VIEWPORT_DIAMETER')}")
@@ -325,11 +337,11 @@ def check_dimensions(g):
             need(2 * a["prong_half_angle"] * p["PRONG_COUNT"] < 360 - 5,
                  f"{n('PRONG_COUNT')} prongs of {n('PRONG_WIDTH')} don't fit around the flange")
             need(hole < p["PRONG_WIDTH"], f"{n('SCREW_HOLE_DIAMETER')} is wider than {n('PRONG_WIDTH')}")
-            need(p["SCREW_PAD_DIAMETER"] <= p["PRONG_WIDTH"],
-                 f"{n('SCREW_PAD_DIAMETER')} is wider than {n('PRONG_WIDTH')}")
-            need(math.hypot(a["prong_in"] + 0.02, pad_r) < a["prong_out"],
+            need(2 * foot_r <= p["PRONG_WIDTH"],
+                 f"the prong screw pads are {2 * foot_r:.3f} wide at the wall, wider than {n('PRONG_WIDTH')}")
+            need(math.hypot(a["prong_in"] + PAD_OVERLAP, base_r) < a["prong_out"],
                  f"{n('SCREW_PAD_DIAMETER')} is too wide for the curve of the prongs")
-            need(a["z_end"] + pad_r <= a["z_prong_screw"] <= a["z_tip"] - pad_r,
+            need(a["z_end"] + foot_r <= a["z_prong_screw"] <= a["z_tip"] - foot_r,
                  f"the prong screw pads run off the prong; make {n('PRONG_LENGTH')} longer "
                  f"or move {n('PRONG_SCREW_POSITION')}")
 
@@ -343,7 +355,7 @@ def check_dimensions(g):
 
     # Each part printed standing on end.
     sizes = {"CameraMount": (MOUNT_LENGTH, g["max_r"]),
-             "CameraCover": (COVER_LENGTH + TONGUE_LENGTH, g["r_out"]),
+             "CameraCover": (COVER_LENGTH + TONGUE_LENGTH - COVER_SETBACK, g["r_out"]),
              "ChamberAdapter": (a["height"], a["max_r"]),
              "ChamberAdapter2": (g["adapter2"]["height"], g["adapter2"]["max_r"])}
     for name, (height, radius) in sizes.items():
@@ -403,7 +415,7 @@ def mount_profile(g):
         (g["r_out"] + LIP_HEIGHT, MOUNT_LENGTH - LIP_THICKNESS),
         (g["r_out"] + LIP_HEIGHT, MOUNT_LENGTH),
         (g["r_body"], MOUNT_LENGTH),
-        (g["r_body"], NECK_BORE_LENGTH),
+        (g["r_body"], g["z_taper_end"]),
         (g["r_neck"], NECK_BORE_LENGTH),
     ])
 
@@ -425,16 +437,17 @@ def mount_cutter_profile(g):
 
 
 def cover_profile(g):
+    """Same bore as the mount, but starting COVER_SETBACK in from the camera end."""
     return clean([
-        (g["r_neck"], 0.0),
-        (g["r_out"], 0.0),
+        (g["r_neck"], COVER_SETBACK),
+        (g["r_out"], COVER_SETBACK),
         (g["r_out"], COVER_LENGTH),
         (g["tongue_out"], COVER_LENGTH),
         (g["tongue_out"], COVER_LENGTH + TONGUE_LENGTH),
         (g["tongue_in"], COVER_LENGTH + TONGUE_LENGTH),
         (g["tongue_in"], COVER_LENGTH),
         (g["r_body"], COVER_LENGTH),
-        (g["r_body"], NECK_BORE_LENGTH),
+        (g["r_body"], g["z_taper_end"]),
         (g["r_neck"], NECK_BORE_LENGTH),
     ])
 
@@ -572,15 +585,15 @@ def finish_object(obj, mat):
 # PARTS
 # =============================================================================
 
-def add_radial_cylinders(bm, spots, r_in, r_out, diameter):
-    """Cylinders running radially from r_in to r_out, one per (x, angle)."""
+def add_radial_cone(bm, x, angle, r_in, r_out, radius_in, radius_out):
+    """A cylinder or cone frustum running radially from r_in to r_out at axial
+    position x and the given angle, with radius_in at its inner end."""
     r_mid = (r_in + r_out) / 2
-    for x, angle in spots:
-        ang = math.radians(angle)
-        place = (Matrix.Translation((x, r_mid * math.cos(ang), r_mid * math.sin(ang)))
-                 @ Matrix.Rotation(ang - math.pi / 2, 4, 'X'))
-        bmesh.ops.create_cone(bm, cap_ends=True, segments=48, radius1=diameter / 2,
-                              radius2=diameter / 2, depth=r_out - r_in, matrix=place)
+    ang = math.radians(angle)
+    place = (Matrix.Translation((x, r_mid * math.cos(ang), r_mid * math.sin(ang)))
+             @ Matrix.Rotation(ang - math.pi / 2, 4, 'X'))
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=48, radius1=radius_in,
+                          radius2=radius_out, depth=r_out - r_in, matrix=place)
 
 
 def build_chamber_adapter(name, a, coll):
@@ -603,17 +616,25 @@ def build_chamber_adapter(name, a, coll):
     if not spots:
         return adapter
 
-    # Raised pads on the outside, starting just outside the bore so they never
-    # poke into it, then holes through pad and wall.
+    # Raised pads on the outside whose sides slope at 45 degrees, so no part of
+    # them hangs flat when printed. Each is a post buried in the wall (starting
+    # just outside the bore so it never pokes into it) plus a 45 degree cone
+    # from just inside the wall's surface out to the flat face. The two overlap
+    # slightly so the unions never meet face to face.
     pad = p["SCREW_PAD_THICKNESS"]
     if pad > 0:
-        bm = bmesh.new()
+        top_r = p["SCREW_PAD_DIAMETER"] / 2
+        base_r = top_r + pad
+        posts, cones = bmesh.new(), bmesh.new()
         for x, angle, r_in, r_out in spots:
-            add_radial_cylinders(bm, [(x, angle)], r_in + 0.02, r_out + pad, p["SCREW_PAD_DIAMETER"])
-        boolean(adapter, finish_mesh("ScrewPads", bm, coll), 'UNION')
+            add_radial_cone(posts, x, angle, r_in + PAD_OVERLAP, r_out - PAD_OVERLAP / 2, base_r, base_r)
+            add_radial_cone(cones, x, angle, r_out - PAD_OVERLAP, r_out + pad, base_r + PAD_OVERLAP, top_r)
+        boolean(adapter, finish_mesh("ScrewPadPosts", posts, coll), 'UNION')
+        boolean(adapter, finish_mesh("ScrewPads", cones, coll), 'UNION')
+    radius = p["SCREW_HOLE_DIAMETER"] / 2
     bm = bmesh.new()
     for x, angle, r_in, r_out in spots:
-        add_radial_cylinders(bm, [(x, angle)], r_in - 0.1, r_out + pad + 0.1, p["SCREW_HOLE_DIAMETER"])
+        add_radial_cone(bm, x, angle, r_in - 0.1, r_out + pad + 0.1, radius, radius)
     boolean(adapter, finish_mesh("ScrewHoles", bm, coll))
     return adapter
 
