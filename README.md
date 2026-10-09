@@ -27,7 +27,7 @@ Every screw hole is sized to tap for 5/16"-24. Each one sits in a raised round p
 The defaults fit an Ender-3 V2 (220 × 220 × 250 mm) with each part printed standing on end. The adapter is 9.75" tall including the prongs, and the mount is 9.75" long. `PRINTER_MAX_HEIGHT` and `PRINTER_BED_SIZE` make the script stop with an error if a part grows too big. Set them to `None` to skip the check.
 
 The main dimensions are in their own section at the top of the script:
-- `CAMERA_DIAMETER` (1.6") is the camera's neck. The mount grips it for `NECK_BORE_LENGTH` (3/4"), then the bore widens at 45° to the focus dial. The cover stops `COVER_SETBACK` (1/2") short of the camera end, so it grips the neck for only 1/4".
+- `CAMERA_DIAMETER` (1.6") is the camera's neck. The mount grips it for `NECK_BORE_LENGTH` (3/4"). The bore then widens to the focus dial through a shoulder at `NECK_TAPER_ANGLE` (75° from the axis). The cover stops `COVER_SETBACK` (1/2") short of the camera end, so it grips the neck for only 1/4".
 - `FOCUS_DIAL_DIAMETER` (2 1/8") is the camera's focus dial.
 - `VIEWPORT_DIAMETER` (8") is the raised viewport flange.
 - `THICKNESS` (1/8") is the wall thickness of every part, including the prongs.
@@ -38,7 +38,7 @@ The glass is set by `GLASS_DIAMETER` and `RECESS_DEPTH`. `INSERTION_DEPTH` sets 
 Each run of the script writes one STL per part to `stl/`: `CameraMount.stl`, `CameraCover.stl` and `ChamberAdapter.stl`. `EXPORT_FOLDER` and `EXPORT_PARTS` control this. Add `"ChamberAdapter2"` to `EXPORT_PARTS` to get the 6" adapter too.
 
 The files are always whole parts, even when `CUTAWAY` is on. They're in millimetres, watertight, and already standing the way they should print:
-- **CameraMount** stands on its lip end, which is a full ring on the bed, so the cover's groove opens upward. The only overhang is the 1/16" edge of the joint band, which prints fine without support.
+- **CameraMount** stands on its lip end, which is a full ring on the bed, so the cover's groove opens upward. There are two overhangs. The 1/16" edge of the joint band prints fine. The 75° neck shoulder near the top is almost flat when printed, so it may sag a little. Add support there if the focus dial needs to seat cleanly against it, or set `NECK_TAPER_ANGLE` to 45 to print it without support.
 - **CameraCover** stands on its camera end and needs no supports.
 - **ChamberAdapter** stands on its small (collar) end, so the flange face prints last as a clean top surface. Behind the face, the inside slopes at 45° down to the cone, so the part needs no supports. Keep `CONE_ANGLE` at 45 or less for the same reason. A brim helps the narrow base stay stuck to the bed.
 

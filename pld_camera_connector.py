@@ -67,9 +67,11 @@ FIT_CLEARANCE = 0.01         # radial gap wherever parts slide together or fit
                              # around the camera, glass or flange
 
 # ---- CameraMount and CameraCover --------------------------------------------
-MOUNT_LENGTH = 9.75          # overall length: neck grip + 45 degree slope + focus dial section
+MOUNT_LENGTH = 9.75          # overall length: neck grip + shoulder + focus dial section
 NECK_BORE_LENGTH = 0.75      # length of the straight CAMERA_DIAMETER grip at the camera end;
-                             # the bore then widens at 45 degrees to the focus dial bore
+                             # the bore then widens at NECK_TAPER_ANGLE to the focus dial bore
+NECK_TAPER_ANGLE = 75.0      # shoulder from the neck bore to the focus dial bore, degrees from
+                             # the axis (90 = flat step); above 45 it overhangs when printed
 COVER_SETBACK = 0.5          # how far the cover stops short of the mount's camera end
 LIP_HEIGHT = 1 / 8           # radial height of the retaining lip at the chamber end
 LIP_THICKNESS = 1 / 4        # axial thickness of that lip
@@ -249,7 +251,10 @@ def derived():
     g["r_neck"] = CAMERA_DIAMETER / 2 + FIT_CLEARANCE
     g["r_body"] = FOCUS_DIAL_DIAMETER / 2 + FIT_CLEARANCE
     g["r_out"] = g["r_body"] + THICKNESS
-    g["z_taper_end"] = NECK_BORE_LENGTH + (g["r_body"] - g["r_neck"])  # 45 degree slope
+    if not 0 < NECK_TAPER_ANGLE <= 90:
+        raise ValueError("NECK_TAPER_ANGLE must be more than 0 and at most 90")
+    g["z_taper_end"] = (NECK_BORE_LENGTH
+                        + (g["r_body"] - g["r_neck"]) / math.tan(math.radians(NECK_TAPER_ANGLE)))
     g["r_pad"] = g["r_out"] + JOINT_PAD_THICKNESS
     # The tongue and groove sit in the middle of the padded wall at the joint.
     r_mid = (g["r_body"] + g["r_pad"]) / 2
@@ -278,7 +283,7 @@ def check_dimensions(g):
     need(FOCUS_DIAL_DIAMETER >= CAMERA_DIAMETER, "FOCUS_DIAL_DIAMETER must be at least CAMERA_DIAMETER")
     need(NECK_BORE_LENGTH > 0, "NECK_BORE_LENGTH must be greater than 0")
     need(g["z_taper_end"] < COVER_LENGTH,
-         f"NECK_BORE_LENGTH plus its 45 degree slope ({g['z_taper_end']:.3f}) must end before COVER_LENGTH")
+         f"NECK_BORE_LENGTH plus its NECK_TAPER_ANGLE shoulder ({g['z_taper_end']:.3f}) must end before COVER_LENGTH")
     need(0 <= COVER_SETBACK < NECK_BORE_LENGTH,
          "COVER_SETBACK must be at least 0 and shorter than NECK_BORE_LENGTH (the cover has to reach the neck grip)")
     need(JOINT_PAD_THICKNESS >= 0, "JOINT_PAD_THICKNESS can't be negative")
