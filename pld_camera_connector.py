@@ -13,7 +13,7 @@ Three parts, all built around the global X axis. The camera is on the left
                    chamber end stops it pulling out of the adapter.
   CameraCover    - a top half-cylinder that covers the camera. Its tongue slides
                    into a groove in the end of the CameraMount tube.
-  ChamberAdapter - grips the mount tube with set screws in its collar, flares out
+  ChamberAdapter - grips the mount tube with three set screws in its collar, flares out
                    to a face that sits on the viewport flange with an indent
                    around the glass, and clamps onto the flange with prongs that
                    each carry a set screw.
@@ -98,8 +98,9 @@ PRONG_SCREW_POSITION = None  # from the flange face; None = middle of the prong
 
 # ---- Screws: 5/16"-24 tapped straight into the plastic ----------------------
 SCREW_HOLE_DIAMETER = 0.272  # tap drill (letter I), used for every screw hole
-SCREW_COUNT = 2              # collar set screws, evenly spaced
-SCREW_ANGLE = 90.0           # angle of the first collar screw (90 = straight up)
+SCREW_COUNT = 3              # collar set screws, evenly spaced; they also centre the tube
+SCREW_ANGLE = 270.0          # angle of the first collar screw (270 = straight down, so with
+                             # 3 screws they line up with the prongs at 270, 30 and 150)
 SCREW_POSITION = None        # from the adapter front face; None = collar middle
 SCREW_PAD_DIAMETER = 0.625   # flat outer face of the round pad around every screw hole;
                              # its sides widen at 45 degrees down to the wall
@@ -116,6 +117,7 @@ ADAPTER2_RECESS_DEPTH = 3 / 16
 ADAPTER2_FLANGE_HEIGHT = 1.375
 ADAPTER2_FIT_CLEARANCE = 0.01
 ADAPTER2_LIP_HEIGHT = 1 / 8
+ADAPTER2_JOINT_PAD_THICKNESS = 1 / 16
 ADAPTER2_LENGTH = 8.5
 ADAPTER2_CONE_ANGLE = 45.0
 ADAPTER2_RIM_LENGTH = 0.5
@@ -126,8 +128,8 @@ ADAPTER2_PRONG_LENGTH = 1.25
 ADAPTER2_PRONG_ANGLE = 270.0
 ADAPTER2_PRONG_SCREW_POSITION = None
 ADAPTER2_SCREW_HOLE_DIAMETER = 0.272
-ADAPTER2_SCREW_COUNT = 2
-ADAPTER2_SCREW_ANGLE = 90.0
+ADAPTER2_SCREW_COUNT = 3
+ADAPTER2_SCREW_ANGLE = 270.0
 ADAPTER2_SCREW_POSITION = None
 ADAPTER2_SCREW_PAD_DIAMETER = 0.625
 ADAPTER2_SCREW_PAD_THICKNESS = 1 / 8
@@ -168,7 +170,8 @@ PAD_OVERLAP = 0.02           # how far each screw pad's sloped part starts insid
 # =============================================================================
 
 ADAPTER_KEYS = ("FOCUS_DIAL_DIAMETER", "VIEWPORT_DIAMETER", "THICKNESS", "GLASS_DIAMETER",
-                "RECESS_DEPTH", "FLANGE_HEIGHT", "FIT_CLEARANCE", "LIP_HEIGHT", "ADAPTER_LENGTH",
+                "RECESS_DEPTH", "FLANGE_HEIGHT", "FIT_CLEARANCE", "LIP_HEIGHT",
+                "JOINT_PAD_THICKNESS", "ADAPTER_LENGTH",
                 "CONE_ANGLE", "RIM_LENGTH", "COLLAR_LENGTH", "PRONG_COUNT", "PRONG_WIDTH",
                 "PRONG_LENGTH", "PRONG_ANGLE", "PRONG_SCREW_POSITION", "SCREW_HOLE_DIAMETER",
                 "SCREW_COUNT", "SCREW_ANGLE", "SCREW_POSITION", "SCREW_PAD_DIAMETER",
@@ -194,7 +197,8 @@ def adapter_geometry(prefix=""):
     a = {"prefix": prefix, "p": p}
 
     r_tube = p["FOCUS_DIAL_DIAMETER"] / 2 + c + wall  # outside of the mount tube
-    a["bore"] = r_tube + c
+    # The mount is slid in through the collar, so the bore clears its joint band.
+    a["bore"] = r_tube + p["JOINT_PAD_THICKNESS"] + c
     a["counterbore"] = r_tube + p["LIP_HEIGHT"] + c
     a["out"] = a["counterbore"] + wall
     a["prong_in"] = p["VIEWPORT_DIAMETER"] / 2 + c
@@ -315,6 +319,10 @@ def check_dimensions(g):
                  f"or move {n('SCREW_POSITION')}")
             need(math.hypot(a["bore"] + PAD_OVERLAP, base_r) < a["out"],
                  f"{n('SCREW_PAD_DIAMETER')} is too wide for the curve of the collar")
+        catch = p["LIP_HEIGHT"] - p["JOINT_PAD_THICKNESS"] - p["FIT_CLEARANCE"]
+        need(catch >= MIN_WALL,
+             f"the mount's lip only overlaps the opened-up collar by {catch:.3f}; make {n('LIP_HEIGHT')} "
+             f"bigger than {n('JOINT_PAD_THICKNESS')} + {n('FIT_CLEARANCE')} + {MIN_WALL:.3f}")
         need(a["recess"] <= a["prong_in"] - MIN_WALL,
              f"{n('GLASS_DIAMETER')} must be smaller than {n('VIEWPORT_DIAMETER')}")
         need(a["prong_out"] > a["out"] + MIN_WALL,

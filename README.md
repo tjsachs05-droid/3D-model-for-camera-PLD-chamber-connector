@@ -19,7 +19,7 @@ This is the design being taken forward for 3D printing. Parameters are in inches
 
 - **CameraMount**: a bottom half-cylinder cradle for the camera, joined to a full tube that slides into the adapter. A lip at its chamber end keeps it from pulling out.
 - **CameraCover**: a top half-cylinder that covers the camera. Its tongue slides into a groove in the CameraMount tube.
-- **ChamberAdapter**: grips the mount tube with set screws in its collar, then flares out to a face that sits on the viewport flange. An indent in that face fits around the protruding glass. Three prongs reach over the flange's side, each with a set screw that clamps onto it.
+- **ChamberAdapter**: its collar is opened up so the mount's joint band can slide through it. Three set screws, lined up with the prongs, then center and grip the tube. From the collar it flares out to a face that sits on the viewport flange. An indent in that face fits around the protruding glass. Three prongs reach over the flange's side, each with a set screw that clamps onto it.
 - **ChamberAdapter2**: the same adapter, set up for the alternate 6" viewport and placed below the assembly. It has its own `ADAPTER2_*` parameters. `ADAPTER2_GAP` sets the space between it and the assembly.
 
 Every screw hole is sized to tap for 5/16"-24. Each one sits in a raised round pad (`SCREW_PAD_DIAMETER`, `SCREW_PAD_THICKNESS`), so there's more plastic for the threads. The pad's sides slope at 45° down to the wall, so no part of it hangs flat when printed. The mount tube also gets a band (`JOINT_PAD_THICKNESS`) where the cover's tongue slides in, so the walls on either side of the groove aren't too thin.
