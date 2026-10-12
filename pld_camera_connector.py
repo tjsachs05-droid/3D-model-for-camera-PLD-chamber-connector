@@ -135,6 +135,17 @@ ADAPTER2_SCREW_PAD_DIAMETER = 0.625
 ADAPTER2_SCREW_PAD_THICKNESS = 1 / 8
 ADAPTER2_GAP = 1.0                  # space between the assembly and ChamberAdapter2
 
+# ---- Pegs: optional push-in alternative to the screws -----------------------
+# One peg per collar screw hole and per prong screw hole of the ChamberAdapter.
+# Each has a knob on the outside to push and pull it by. The collar pegs are the
+# longer ones.
+PEG_CLEARANCE = 0.0          # radial gap between peg and hole: 0 = exactly the hole size
+                             # (a push fit), positive = looser, negative = tighter
+PEG_PRESS = 0.02             # how far past the tube / flange each peg reaches, so it
+                             # presses on it before its knob seats
+PEG_HEAD_DIAMETER = 0.5      # knob diameter
+PEG_HEAD_LENGTH = 0.375      # knob length
+
 # ---- Size -------------------------------------------------------------------
 SCALE = 1.0                  # uniform scale for the whole finished model; the screw
                              # holes and clearances scale with it
@@ -147,8 +158,8 @@ PRINTER_BED_SIZE = 220 / 25.4    # Ender-3 V2: 220 x 220 mm; None skips the chec
 # Every run writes one STL per part (always whole, never cut away), in mm and
 # stood on end the way it should print. A relative folder is next to this script.
 EXPORT_FOLDER = "stl"        # None turns export off
-EXPORT_PARTS = ("CameraMount", "CameraCover", "ChamberAdapter")  # add "ChamberAdapter2"
-                                                                 # for the 6" viewport
+EXPORT_PARTS = ("CameraMount", "CameraCover", "ChamberAdapter", "Pegs")  # add
+                                                    # "ChamberAdapter2" for the 6" viewport
 
 # ---- Display ----------------------------------------------------------------
 SEGMENTS = 128               # facets around the axis (keep it a multiple of 4)
@@ -158,11 +169,13 @@ ADAPTER_COLOR = (0.50, 0.50, 0.50)   # ChamberAdapter: matte grey
 MOUNT_COLOR = (0.20, 0.35, 0.65)     # CameraMount: matte blue
 COVER_COLOR = (0.80, 0.45, 0.15)     # CameraCover: matte orange
 ADAPTER2_COLOR = (0.50, 0.50, 0.50)  # ChamberAdapter2: matte grey
+PEG_COLOR = (0.85, 0.70, 0.15)       # Pegs: matte yellow
 COLLECTION_NAME = "PLD Camera Connector"
 
 MM_PER_INCH = 25.4
 MIN_WALL = 1 / 32            # thinnest wall the dimension checks accept
 PAD_OVERLAP = 0.02           # how far each screw pad's sloped part starts inside the wall
+PEG_TIP_CHAMFER = 0.03       # bevel on each peg's tip so it starts into the hole
 
 
 # =============================================================================
@@ -272,6 +285,14 @@ def derived():
 
     g["adapter"] = adapter_geometry()
     g["adapter2"] = adapter_geometry("ADAPTER2_")
+
+    # Pegs for the ChamberAdapter: each shank runs from its screw pad's face to
+    # PEG_PRESS past the surface it presses on (the mount tube or the flange).
+    a = g["adapter"]
+    reach = a["out"] + SCREW_PAD_THICKNESS
+    g["peg_shank_r"] = SCREW_HOLE_DIAMETER / 2 - PEG_CLEARANCE
+    g["pegs"] = ([reach - g["r_out"] + PEG_PRESS] * SCREW_COUNT
+                 + [a["prong_out"] + SCREW_PAD_THICKNESS - VIEWPORT_DIAMETER / 2 + PEG_PRESS] * PRONG_COUNT)
     return g
 
 
@@ -357,6 +378,10 @@ def check_dimensions(g):
             need(a["z_end"] + foot_r <= a["z_prong_screw"] <= a["z_tip"] - foot_r,
                  f"the prong screw pads run off the prong; make {n('PRONG_LENGTH')} longer "
                  f"or move {n('PRONG_SCREW_POSITION')}")
+
+    need(PEG_TIP_CHAMFER < g["peg_shank_r"] < PEG_HEAD_DIAMETER / 2,
+         "PEG_CLEARANCE leaves the peg too thin, or PEG_HEAD_DIAMETER isn't wider than the hole")
+    need(PEG_HEAD_LENGTH > 0 and PEG_PRESS >= 0, "PEG_HEAD_LENGTH must be > 0 and PEG_PRESS >= 0")
 
     a = g["adapter"]
     need(INSERTION_DEPTH >= COLLAR_LENGTH + LIP_THICKNESS,
@@ -662,6 +687,40 @@ def build_camera_cover(g, coll):
     return revolve("CameraCover", cover_profile(g), coll, start=0, sweep=180)
 
 
+def add_solid_of_revolution(bm, profile, y, segments=48):
+    """A solid spun around a line parallel to X through (y, 0). profile is
+    (radius, x) points that start and end on the axis (radius 0)."""
+    first = bm.verts.new((profile[0][1], y, 0.0))
+    last = bm.verts.new((profile[-1][1], y, 0.0))
+    inner = profile[1:-1]
+    rings = []
+    for i in range(segments):
+        a = 2 * math.pi * i / segments
+        ca, sa = math.cos(a), math.sin(a)
+        rings.append([bm.verts.new((x, y + r * ca, r * sa)) for r, x in inner])
+    for i in range(segments):
+        ring, nxt = rings[i], rings[(i + 1) % segments]
+        bm.faces.new((first, nxt[0], ring[0]))
+        for j in range(len(inner) - 1):
+            bm.faces.new((ring[j], nxt[j], nxt[j + 1], ring[j + 1]))
+        bm.faces.new((ring[-1], nxt[-1], last))
+
+
+def build_pegs(g, coll):
+    """All the pegs in a row, axes along X with the knob at the low-X end (so
+    they print standing on their knobs)."""
+    head_r, head_l = PEG_HEAD_DIAMETER / 2, PEG_HEAD_LENGTH
+    shank_r, tip = g["peg_shank_r"], PEG_TIP_CHAMFER
+    spacing = PEG_HEAD_DIAMETER + 0.25
+    bm = bmesh.new()
+    for i, length in enumerate(g["pegs"]):
+        end = head_l + length
+        profile = [(0.0, 0.0), (head_r, 0.0), (head_r, head_l), (shank_r, head_l),
+                   (shank_r, end - tip), (shank_r - tip, end), (0.0, end)]
+        add_solid_of_revolution(bm, profile, (i - (len(g["pegs"]) - 1) / 2) * spacing)
+    return finish_mesh("Pegs", bm, coll)
+
+
 def cutaway(obj, coll):
     """Remove the -Y half of obj with a box sized to cover the whole object."""
     # Read the vertices directly: bound_box and matrix_world are stale until the
@@ -749,30 +808,40 @@ def main():
     adapter2 = build_chamber_adapter("ChamberAdapter2", g["adapter2"], coll)
     parts = [(adapter, ADAPTER_COLOR), (mount, MOUNT_COLOR), (cover, COVER_COLOR),
              (adapter2, ADAPTER2_COLOR)]
+    # Accessories are shown whole even with CUTAWAY on.
+    extras = [(build_pegs(g, coll), PEG_COLOR)] if g["pegs"] else []
 
     # Built in inches; convert to millimetres (and apply SCALE).
     k = SCALE * MM_PER_INCH
     explode = EXPLODE * MM_PER_INCH
-    for obj, _ in parts:
+    for obj, _ in parts + extras:
         obj.data.transform(Matrix.Scale(k, 4))
     adapter.location.x = (MOUNT_LENGTH - INSERTION_DEPTH) * k + explode
     cover.location = (-explode, 0.0, explode)
-    # Directly below the ChamberAdapter, ADAPTER2_GAP clear of the assembly.
+    # Directly below the ChamberAdapter, ADAPTER2_GAP clear of the assembly,
+    # and the pegs in a row below that.
     assembly_radius = max(g["adapter"]["max_r"], g["max_r"])
     drop = assembly_radius + ADAPTER2_GAP + g["adapter2"]["max_r"]
     adapter2.location = (adapter.location.x, 0.0, -drop * k)
+    for obj, _ in extras:
+        below = drop + g["adapter2"]["max_r"] + ADAPTER2_GAP + PEG_HEAD_DIAMETER / 2
+        obj.location = (adapter.location.x, 0.0, -below * k)
 
     # Export before any cutaway so the files are always whole parts.
     if EXPORT_FOLDER is not None:
         folder = export_folder()
-        for obj, _ in parts:
+        written = []
+        for obj, _ in parts + extras:
             if obj.name in EXPORT_PARTS:
                 write_stl(os.path.join(folder, obj.name + ".stl"), obj)
-        print(f"Wrote {', '.join(n + '.stl' for n in EXPORT_PARTS)} to {folder}")
+                written.append(obj.name + ".stl")
+        print(f"Wrote {', '.join(written)} to {folder}")
 
     for obj, color in parts:
         if CUTAWAY:
             cutaway(obj, coll)
+        finish_object(obj, matte_material(f"{obj.name} Matte", color))
+    for obj, color in extras:
         finish_object(obj, matte_material(f"{obj.name} Matte", color))
     a = g["adapter"]
     print(f"Built {COLLECTION_NAME}: mount OD {2 * g['r_out'] * SCALE:.3f} in, "

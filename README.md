@@ -35,12 +35,14 @@ The main dimensions are in their own section at the top of the script:
 The glass is set by `GLASS_DIAMETER` and `RECESS_DEPTH`. `INSERTION_DEPTH` sets how far the mount sits in the adapter, which sets the camera-to-viewport distance. `section_preview.png` is a cutaway render.
 
 ### Printing
-Each run of the script writes one STL per part to `stl/`: `CameraMount.stl`, `CameraCover.stl` and `ChamberAdapter.stl`. `EXPORT_FOLDER` and `EXPORT_PARTS` control this. Add `"ChamberAdapter2"` to `EXPORT_PARTS` to get the 6" adapter too.
+Each run of the script writes one STL per part to `stl/`: `CameraMount.stl`, `CameraCover.stl`, `ChamberAdapter.stl` and `Pegs.stl`. `EXPORT_FOLDER` and `EXPORT_PARTS` control this. Add `"ChamberAdapter2"` to `EXPORT_PARTS` to get the 6" adapter too.
 
 The files are always whole parts, even when `CUTAWAY` is on. They're in millimetres, watertight, and already standing the way they should print:
 - **CameraMount** stands on its lip end, which is a full ring on the bed, so the cover's groove opens upward. There are two overhangs. The 1/16" edge of the joint band prints fine. The 75° neck shoulder near the top is almost flat when printed, so it may sag a little. Add support there if the focus dial needs to seat cleanly against it, or set `NECK_TAPER_ANGLE` to 45 to print it without support.
 - **CameraCover** stands on its camera end and needs no supports.
 - **ChamberAdapter** stands on its small (collar) end, so the flange face prints last as a clean top surface. Behind the face, the inside slopes at 45° down to the cone, so the part needs no supports. Keep `CONE_ANGLE` at 45 or less for the same reason. A brim helps the narrow base stay stuck to the bed.
+
+`Pegs.stl` holds six optional push-in pegs, to use instead of the screws. The three longer ones (0.78") go in the collar, and the three shorter ones (0.655") go in the prongs. Each peg has a 1/2" knob to push and pull it by, and reaches 0.02" past the tube or flange so it presses on it. The pegs are modelled at exactly the hole size, for a push fit, so drill the holes out to 0.272" first. If they're too tight or too loose, adjust `PEG_CLEARANCE`.
 
 Print with at least 4 walls (perimeters) so the plastic around the screw holes is solid. Then drill the holes out with a letter-I (0.272") bit and cut the threads with a 5/16"-24 tap.
 
