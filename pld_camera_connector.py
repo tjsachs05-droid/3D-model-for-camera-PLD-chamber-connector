@@ -47,7 +47,7 @@ except ImportError:  # lets the profile math be checked outside Blender
 # =============================================================================
 
 CAMERA_DIAMETER = 1.6        # camera neck, held at the camera end of the mount
-FOCUS_DIAL_DIAMETER = 2.125  # camera focus dial, the wider part of the camera
+FOCUS_DIAL_DIAMETER = 2.25   # camera focus dial, the wider part of the camera
 VIEWPORT_DIAMETER = 8.0      # raised viewport flange the prongs clamp around
 THICKNESS = 1 / 8            # wall thickness of every part, including the prongs
                              # (screw holes and the cover joint get extra pads)
@@ -68,14 +68,14 @@ FIT_CLEARANCE = 0.01         # radial gap wherever parts slide together or fit
 
 # ---- CameraMount and CameraCover --------------------------------------------
 MOUNT_LENGTH = 9.75          # overall length: neck grip + shoulder + focus dial section
-NECK_BORE_LENGTH = 0.75      # length of the straight CAMERA_DIAMETER grip at the camera end;
+NECK_BORE_LENGTH = 0.5       # length of the straight CAMERA_DIAMETER grip at the camera end;
                              # the bore then widens at NECK_TAPER_ANGLE to the focus dial bore
 NECK_TAPER_ANGLE = 75.0      # shoulder from the neck bore to the focus dial bore, degrees from
                              # the axis (90 = flat step); above 45 it overhangs when printed
-COVER_SETBACK = 0.5          # how far the cover stops short of the mount's camera end
+COVER_SETBACK = 0.25         # how far the cover stops short of the mount's camera end
 LIP_HEIGHT = 1 / 8           # radial height of the retaining lip at the chamber end
 LIP_THICKNESS = 1 / 4        # axial thickness of that lip
-COVER_LENGTH = 2.75          # mount's camera end to where its full tube starts (the cover's
+COVER_LENGTH = 3.0           # mount's camera end to where its full tube starts (the cover's
                              # far end); the cover itself starts COVER_SETBACK in
 TONGUE_LENGTH = 5 / 12       # length of the cover's tongue that slides into the groove (0.417")
 TONGUE_THICKNESS = 1 / 16    # radial thickness of the tongue
@@ -108,7 +108,7 @@ SCREW_PAD_THICKNESS = 1 / 8  # how far the pad stands out, for more thread
 # ---- ChamberAdapter2: alternate 6" viewport, placed below the assembly ------
 # Each one means the same as the ChamberAdapter parameter with the same name
 # (ADAPTER2_LENGTH is the ADAPTER_LENGTH of this part).
-ADAPTER2_FOCUS_DIAL_DIAMETER = 2.125  # with ADAPTER2_THICKNESS, sets the tube size it fits
+ADAPTER2_FOCUS_DIAL_DIAMETER = 2.25   # with ADAPTER2_THICKNESS, sets the tube size it fits
 ADAPTER2_VIEWPORT_DIAMETER = 6.0
 ADAPTER2_THICKNESS = 1 / 8
 ADAPTER2_GLASS_DIAMETER = 4.5
